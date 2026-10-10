@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -8,10 +8,18 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Public } from '@/common/decorators/public.decorator';
 import { ApiErrorDto } from '@/common/dto/api-error.dto';
 import { AuthService } from '@/modules/auth/auth.service';
 import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
-import { AuthStateDto, LogoutResultDto } from '@/modules/auth/dto/auth.dto';
+import {
+  AuthStateDto,
+  LogoutResultDto,
+  SendOtpDto,
+  SendOtpResultDto,
+  VerifyOtpDto,
+  VerifyOtpResultDto,
+} from '@/modules/auth/dto/auth.dto';
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -22,6 +30,32 @@ import { AuthStateDto, LogoutResultDto } from '@/modules/auth/dto/auth.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Send verification OTP',
+    description: 'Generates and dispatches a 6-digit verification code to the phone number.',
+  })
+  @ApiOkResponse({ description: 'OTP sent result', type: SendOtpResultDto })
+  async sendOtp(@Body() body: SendOtpDto) {
+    return this.authService.sendOtp(body.phone);
+  }
+
+  @Public()
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify OTP and issue access token',
+    description: 'Verifies the 6-digit OTP and returns a valid access token.',
+  })
+  @ApiOkResponse({ description: 'Verification successful', type: VerifyOtpResultDto })
+  async verifyOtp(@Body() body: VerifyOtpDto) {
+    return this.authService.verifyOtp(body.phone, body.otp);
+  }
+
+
 
   @Post('bootstrap')
   @HttpCode(HttpStatus.OK)

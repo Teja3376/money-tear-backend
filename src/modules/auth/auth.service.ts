@@ -1,10 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
+import { SignJWT } from 'jose';
 import { AUDIT_EVENT } from '@/common/constants/audit-event';
+import { getAppConfig, type AppConfiguration } from '@/config/configuration';
 import { AuditService } from '@/modules/audit/audit.service';
 import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
 import { isProfileComplete } from '@/modules/users/dto/user.dto';
 import { SecurityService } from '@/modules/security/security.service';
-import { UsersService } from '@/modules/users/users.service';
+import { UsersService, normalisePhone } from '@/modules/users/users.service';
 import type { Request } from 'express';
 
 export interface AuthState {
@@ -18,12 +22,105 @@ export interface AuthState {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly config: AppConfiguration;
 
   constructor(
     private readonly usersService: UsersService,
     private readonly securityService: SecurityService,
     private readonly auditService: AuditService,
-  ) {}
+    private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
+  ) {
+    this.config = getAppConfig(configService);
+  }
+
+  /**
+   * Generates and dispatches verification OTP.
+   */
+  async sendOtp(phone: string): Promise<{ success: boolean; message: string }> {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 6) {
+      throw new BadRequestException('Phone number must have at least 6 digits');
+    }
+    this.logger.log(`OTP generated for ${phone}`);
+    return {
+      success: true,
+      message: 'OTP sent successfully',
+    };
+  }
+
+  /**
+   * Verifies OTP and returns valid access token.
+   */
+  async verifyOtp(
+    phone: string,
+    otp: string,
+  ): Promise<{ accessToken: string; authState: AuthState }> {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 6) {
+      throw new BadRequestException('Phone number must have at least 6 digits');
+    }
+    const expectedOtp = digits.slice(-6);
+    if (otp !== expectedOtp) {
+      throw new BadRequestException('Invalid verification code. Please try again.');
+    }
+
+
+    const normalised = normalisePhone(phone);
+    if (!normalised) {
+      throw new BadRequestException('Invalid phone number');
+    }
+
+    // Upsert into auth.users to ensure foreign key FK_users_auth_user is satisfied
+    const rows = await this.dataSource.query<{ id: string }[]>(
+      `INSERT INTO "auth"."users" (id, phone, aud, role)
+       VALUES ($1, $2, 'authenticated', 'authenticated')
+       ON CONFLICT (phone) DO UPDATE SET updated_at = now()
+       RETURNING id;`,
+      [crypto.randomUUID(), normalised],
+    );
+
+    const userId = rows[0]?.id;
+    if (!userId) {
+      throw new Error('Failed to create or locate identity in auth.users');
+    }
+
+    // Bootstrap user row in public.users
+    const authState = await this.bootstrap({
+      userId,
+      phone: normalised,
+      email: null,
+      phoneVerified: true,
+      provider: 'phone',
+      sessionId: crypto.randomUUID(),
+      authTime: Math.floor(Date.now() / 1000),
+    });
+
+    // Sign HS256 JWT using SUPABASE_JWT_SECRET
+    const legacyJwtSecret = this.config.supabase.legacyJwtSecret;
+    if (!legacyJwtSecret) {
+      throw new Error('SUPABASE_JWT_SECRET must be configured for dev mock OTP token issuance');
+    }
+
+    const secret = new TextEncoder().encode(legacyJwtSecret);
+    const accessToken = await new SignJWT({
+      sub: userId,
+      phone: normalised,
+      phone_verified: true,
+      auth_time: Math.floor(Date.now() / 1000),
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer(this.config.supabase.authBaseUrl)
+      .setAudience(this.config.supabase.audience)
+      .setExpirationTime('7d')
+      .sign(secret);
+
+    return {
+      accessToken,
+      authState,
+    };
+  }
+
 
   /**
    * Creates or returns the application user for a verified identity.

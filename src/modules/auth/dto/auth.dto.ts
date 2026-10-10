@@ -42,3 +42,28 @@ export const logoutResultSchema = z.object({
 export class AuthUserDto extends createZodDto(authUserSchema) {}
 export class AuthStateDto extends createZodDto(authStateSchema) {}
 export class LogoutResultDto extends createZodDto(logoutResultSchema) {}
+
+export const sendOtpSchema = z.object({
+  phone: z.string().trim().min(10).describe('User phone number'),
+});
+
+export const sendOtpResultSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+
+export const verifyOtpSchema = z.object({
+  phone: z.string().trim().min(10).describe('User phone number'),
+  otp: z.string().trim().length(6).describe('6-digit verification code'),
+});
+
+export const verifyOtpResultSchema = z.object({
+  accessToken: z.string().describe('JWT access token to authenticate subsequent requests'),
+  authState: authStateSchema.describe('Application auth state'),
+});
+
+export class SendOtpDto extends createZodDto(sendOtpSchema) {}
+export class SendOtpResultDto extends createZodDto(sendOtpResultSchema) {}
+export class VerifyOtpDto extends createZodDto(verifyOtpSchema) {}
+export class VerifyOtpResultDto extends createZodDto(verifyOtpResultSchema) {}
