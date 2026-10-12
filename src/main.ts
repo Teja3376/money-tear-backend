@@ -33,13 +33,16 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // Allow all origins directly in code
   app.enableCors({
-    // Explicit allow-list: never a wildcard together with credentials.
-    origin: config.http.corsOrigins.length > 0 ? config.http.corsOrigins : false,
+    origin: (_origin, callback) => {
+      // Allow all origins (*), reflecting caller origin to maintain credentials support
+      callback(null, true);
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
-    maxAge: 600,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id', 'Accept', 'Origin'],
+    maxAge: 86400,
   });
 
   app.enableShutdownHooks();

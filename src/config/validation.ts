@@ -15,8 +15,12 @@ import {
 
 const booleanString = () =>
   Transform(({ value }) => {
-    if (typeof value !== 'string') return value;
-    return value === 'true' || value === '1' || value === 'yes';
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const lower = value.trim().toLowerCase();
+      return lower === 'true' || lower === '1' || lower === 'yes';
+    }
+    return Boolean(value);
   });
 
 const toInt = () => Transform(({ value }) => Number.parseInt(String(value), 10));
@@ -173,7 +177,7 @@ export type Env = InstanceType<typeof EnvironmentVariables>;
 
 export function validateEnv(raw: Record<string, unknown> = process.env): Env {
   const instance = plainToInstance(EnvironmentVariables, raw, {
-    enableImplicitConversion: true,
+    enableImplicitConversion: false,
   });
   const errors = validateSync(instance, { skipMissingProperties: false });
 
