@@ -9,13 +9,6 @@ import {
 } from '@/modules/audit/entities/auth-audit-event.entity';
 import { resolveIpAddress, resolveUserAgent } from '@/common/utils/request-context';
 
-/**
- * Keys that may never be persisted, regardless of caller intent.
- *
- * Defence in depth: the audit API only accepts these keys in the first place, and
- * any other key is dropped. This is what guarantees a PIN, OTP or token can never
- * reach `auth_audit_events` even if a future caller is careless.
- */
 export const ALLOWED_METADATA_KEYS = [
   'reason',
   'source',
@@ -36,19 +29,12 @@ export interface AuditRecordInput {
   eventType: AuditEventType;
   success: boolean;
   userId?: string | null;
-  /** HTTP request to source the IP / user agent from. */
   request?: Request;
   ipAddress?: string | null;
   userAgent?: string | null;
   metadata?: AuditMetadata;
 }
 
-/**
- * Writes security audit events.
- *
- * Audit persistence is best-effort by design: losing an audit row must never turn
- * a valid response into a 500. Failures are logged instead.
- */
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -78,7 +64,6 @@ export class AuditService {
   }
 }
 
-/** Drops every key outside the allow-list and strips unbounded strings. */
 export function sanitiseMetadata(
   metadata: AuditMetadata | undefined,
 ): Record<string, AuditMetadataValue> {

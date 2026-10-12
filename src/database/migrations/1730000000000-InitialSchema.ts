@@ -1,18 +1,5 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-/**
- * Initial application schema: `users`, `user_security`, `auth_audit_events`.
- *
- * Notes:
- * - `synchronize` is disabled project-wide; this migration is the only way the
- *   schema changes.
- * - `users.id` references `auth.users(id)`. Supabase owns that table; the
- *   application only reads it through this FK and never writes to it.
- *   FK privileges were verified against the live project before authoring.
- * - Row Level Security is enabled and no policies are created, which makes the
- *   Data API roles (`anon`, `authenticated`) see zero rows. The API connects as
- *   the table owner, so NestJS keeps working while direct client access does not.
- */
 export class InitialSchema1730000000000 implements MigrationInterface {
   name = 'InitialSchema1730000000000';
 

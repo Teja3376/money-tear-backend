@@ -1,8 +1,9 @@
 import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '@/common/decorators/public.decorator';
-import { HealthService } from '@/modules/health/health.service';
-import { LivenessDto, ReadinessDto } from '@/modules/health/dto/health.dto';
+import { HealthService } from '@/modules/health/services/health.service';
+import { LivenessDto } from '@/modules/health/dto/liveness.dto';
+import { ReadinessDto } from '@/modules/health/dto/readiness.dto';
 
 @ApiTags('health')
 @Public()

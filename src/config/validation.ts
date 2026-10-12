@@ -1,101 +1,188 @@
-import { z } from 'zod';
+import { Transform, plainToInstance } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  MinLength,
+  validateSync,
+} from 'class-validator';
 
-/** Accepts `"true"/"false"/"1"/"0"/"yes"/"no"` and coerces to a boolean. */
-const booleanFromEnv = z
-  .enum(['true', 'false', '1', '0', 'yes', 'no'])
-  .transform((value) => value === 'true' || value === '1' || value === 'yes');
+const booleanString = () =>
+  Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    return value === 'true' || value === '1' || value === 'yes';
+  });
 
-const optionalString = z
-  .string()
-  .trim()
-  .min(1)
-  .optional()
-  .transform((value) => (value === '' ? undefined : value));
+const toInt = () => Transform(({ value }) => Number.parseInt(String(value), 10));
 
-/**
- * Environment contract. Parsed once at boot; a violation aborts startup rather
- * than surfacing later as a confusing runtime failure.
- *
- * Secrets are only ever *validated* here. Nothing in this file logs or returns
- * their values.
- */
-export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+const optionalString = () =>
+  Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : trimmed;
+  });
+
+const toStringArray = () =>
+  Transform(({ value }) => {
+    if (typeof value !== 'string') return [];
+    return value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  });
+
+export class EnvironmentVariables {
+  @IsIn(['development', 'test', 'production'])
+  NODE_ENV: string = 'development';
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  PORT: number = 3000;
 
   // --- Database -----------------------------------------------------------
-  DB_HOST: z.string().trim().min(1, 'DB_HOST is required'),
-  DB_PORT: z.coerce.number().int().min(1).max(65535).default(5432),
-  DB_USERNAME: z.string().trim().min(1, 'DB_USERNAME is required'),
-  DB_PASSWORD: z.string().min(1, 'DB_PASSWORD is required'),
-  DB_NAME: z.string().trim().min(1).default('postgres'),
-  DB_SSL: booleanFromEnv.default(false),
-  DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
-  DB_SSL_REJECT_UNAUTHORIZED: booleanFromEnv.default(false),
+  @IsString()
+  @MinLength(1)
+  DB_HOST!: string;
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  DB_PORT: number = 5432;
+
+  @IsString()
+  @MinLength(1)
+  DB_USERNAME!: string;
+
+  @IsString()
+  @MinLength(1)
+  DB_PASSWORD!: string;
+
+  @IsString()
+  @MinLength(1)
+  DB_NAME: string = 'postgres';
+
+  @booleanString()
+  @IsBoolean()
+  DB_SSL: boolean = false;
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  DB_POOL_SIZE: number = 10;
+
+  @booleanString()
+  @IsBoolean()
+  DB_SSL_REJECT_UNAUTHORIZED: boolean = false;
 
   // --- Supabase -----------------------------------------------------------
-  SUPABASE_URL: z
-    .string()
-    .trim()
-    .url('SUPABASE_URL must be a valid URL (e.g. https://<project-ref>.supabase.co)'),
-  /**
-   * Publishable/anon key. The backend never calls Supabase with it - tokens are
-   * verified locally against JWKS - but it is validated so misconfiguration is
-   * caught early, and so the mobile client can be given a single source of truth.
-   */
-  SUPABASE_ANON_KEY: optionalString,
-  SUPABASE_PUBLISHABLE_KEY: optionalString,
-  /**
-   * Legacy HS256 signing secret. Optional: only needed for projects still using
-   * symmetric signing. Never logged.
-   */
-  SUPABASE_JWT_SECRET: optionalString,
-  AUTH_JWT_AUDIENCE: z.string().trim().min(1).default('authenticated'),
+  @IsUrl({ require_tld: false, protocols: ['https'] })
+  SUPABASE_URL!: string;
+
+  @optionalString()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  SUPABASE_ANON_KEY?: string;
+
+  @optionalString()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  SUPABASE_PUBLISHABLE_KEY?: string;
+
+  @optionalString()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  SUPABASE_JWT_SECRET?: string;
+
+  @IsString()
+  @MinLength(1)
+  AUTH_JWT_AUDIENCE: string = 'authenticated';
 
   // --- Auth / PIN policy --------------------------------------------------
-  AUTH_RECENT_AUTH_WINDOW_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
-  AUTH_PIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
-  AUTH_PIN_LOCK_SECONDS: z.coerce.number().int().min(30).max(86_400).default(900),
-  AUTH_PIN_UNLOCK_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  @toInt()
+  @IsInt()
+  @Min(30)
+  @Max(3600)
+  AUTH_RECENT_AUTH_WINDOW_SECONDS: number = 300;
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  AUTH_PIN_MAX_ATTEMPTS: number = 5;
+
+  @toInt()
+  @IsInt()
+  @Min(30)
+  @Max(86_400)
+  AUTH_PIN_LOCK_SECONDS: number = 900;
+
+  @toInt()
+  @IsInt()
+  @Min(30)
+  @Max(3600)
+  AUTH_PIN_UNLOCK_TTL_SECONDS: number = 300;
 
   // --- Rate limiting ------------------------------------------------------
-  RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),
-  RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
-  PIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  @toInt()
+  @IsInt()
+  @Min(1000)
+  RATE_LIMIT_TTL_MS: number = 60_000;
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  RATE_LIMIT_MAX: number = 120;
+
+  @toInt()
+  @IsInt()
+  @Min(1)
+  PIN_RATE_LIMIT_MAX: number = 10;
 
   // --- HTTP ---------------------------------------------------------------
-  CORS_ORIGINS: z
-    .string()
-    .trim()
-    .default('')
-    .transform((value) =>
-      value
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    ),
+  @toStringArray()
+  @IsArray()
+  @IsString({ each: true })
+  CORS_ORIGINS: string[] = [];
 
   // --- Documentation / observability -------------------------------------
-  SWAGGER_ENABLED: booleanFromEnv.default(true),
-  OBSERVE_APP_KEY: z.string().trim().default(''),
-  OBSERVE_APP_SECRET: z.string().trim().default(''),
-});
+  @booleanString()
+  @IsBoolean()
+  SWAGGER_ENABLED: boolean = true;
 
-export type Env = z.infer<typeof envSchema>;
+  @IsString()
+  OBSERVE_APP_KEY: string = '';
 
-/**
- * Validates `process.env`. Throws a single aggregated, secret-free error listing
- * only the offending variable names.
- */
+  @IsString()
+  OBSERVE_APP_SECRET: string = '';
+}
+
+export type Env = InstanceType<typeof EnvironmentVariables>;
+
 export function validateEnv(raw: Record<string, unknown> = process.env): Env {
-  const result = envSchema.safeParse(raw);
+  const instance = plainToInstance(EnvironmentVariables, raw, {
+    enableImplicitConversion: true,
+  });
+  const errors = validateSync(instance, { skipMissingProperties: false });
 
-  if (!result.success) {
-    const details = result.error.issues
-      .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+  if (errors.length > 0) {
+    const details = errors
+      .map((e) => `${e.property}: ${Object.values(e.constraints ?? {}).join(', ')}`)
       .join('; ');
     throw new Error(`Invalid environment configuration -> ${details}`);
   }
 
-  return result.data;
+  return instance;
 }

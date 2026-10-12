@@ -5,19 +5,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ACCOUNT_STATUS } from '@/common/constants/account';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
-import { UsersService } from '@/modules/users/users.service';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
+import { UsersService } from '@/modules/users/services/users.service';
 
-/**
- * Blocks callers whose application account is not usable.
- *
- * A valid Supabase token proves *identity*; it says nothing about whether the
- * application account is still active. This guard runs after `JwtAuthGuard` and
- * denies `suspended` / `disabled` accounts with 403.
- *
- * A user with no application row yet is allowed through, so that
- * `POST /api/auth/bootstrap` can provision it.
- */
 @Injectable()
 export class AccountStatusGuard implements CanActivate {
   constructor(private readonly usersService: UsersService) {}

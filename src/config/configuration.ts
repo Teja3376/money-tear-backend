@@ -14,11 +14,9 @@ export interface DatabaseConfig {
 
 export interface SupabaseConfig {
   url: string;
-  /** `${SUPABASE_URL}/auth/v1` - token issuer and JWKS base. */
   authBaseUrl: string;
   jwksUrl: string;
   audience: string;
-  /** Legacy HS256 secret; `undefined` disables symmetric verification entirely. */
   legacyJwtSecret?: string;
 }
 
@@ -62,17 +60,10 @@ export interface AppConfiguration {
   swagger: SwaggerConfig;
 }
 
-/** Strips a trailing slash so `${url}/auth/v1` never doubles up. */
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
-/**
- * Builds the typed, immutable configuration tree consumed through `ConfigService`.
- *
- * `validate` has already run in `ConfigModule.forRoot`, so values here are known
- * to be present and well-formed.
- */
 export function buildConfiguration(env: Env): AppConfiguration {
   const authBaseUrl = `${trimTrailingSlash(env.SUPABASE_URL)}/auth/v1`;
 
@@ -122,19 +113,12 @@ export function buildConfiguration(env: Env): AppConfiguration {
   };
 }
 
-/** `ConfigModule.forRoot` entry point. */
 export function loadConfiguration(): AppConfiguration {
   return buildConfiguration(validateEnv(process.env));
 }
 
 export const CONFIG_NAMESPACE = 'app';
 
-/**
- * Single typed accessor for the application configuration.
- *
- * Every consumer goes through this helper so the namespace key and the fallback
- * behaviour are defined in exactly one place.
- */
 export function getAppConfig(configService: ConfigService): AppConfiguration {
   return configService.getOrThrow<AppConfiguration>(CONFIG_NAMESPACE);
 }

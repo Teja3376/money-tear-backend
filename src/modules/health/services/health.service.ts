@@ -7,26 +7,18 @@ export interface HealthReport {
   uptimeSeconds: number;
   database: {
     status: 'up' | 'down';
-    /** Only set when the check fails; never contains credentials or a driver stack. */
     error?: string;
   };
 }
 
-/**
- * Health checks that distinguish *application availability* from *database
- * connectivity*: the process can be alive and serving `/health/live` while the
- * database is unreachable, which is what `/health/ready` reports.
- */
 @Injectable()
 export class HealthService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  /** Liveness: the process is running. Deliberately does not touch the database. */
   live(): { status: 'ok'; uptimeSeconds: number } {
     return { status: 'ok', uptimeSeconds: Math.round(process.uptime()) };
   }
 
-  /** Readiness: the database answers a trivial query. */
   async ready(): Promise<HealthReport> {
     const uptimeSeconds = Math.round(process.uptime());
     try {

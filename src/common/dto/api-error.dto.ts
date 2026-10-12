@@ -1,26 +1,38 @@
-import { z } from 'zod';
-import { createZodDto } from '@/common/zod/create-zod-dto';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsArray, IsInt, IsObject, IsString } from 'class-validator';
 
-/**
- * Uniform error envelope produced by `AllExceptionsFilter`.
- *
- * It intentionally carries a correlation id instead of a stack trace: the trace
- * is logged server-side only.
- */
-export const apiErrorSchema = z.object({
-  statusCode: z.number().int().describe('HTTP status code'),
-  error: z.string().describe('Short machine-readable error code'),
-  message: z.string().describe('Human-readable summary safe to return to a client'),
-  requestId: z.string().describe('Correlation id, also present in server logs'),
-  path: z.string().describe('Request path that failed'),
-  timestamp: z.string().describe('ISO-8601 time the error was produced'),
-  errors: z
-    .record(z.string(), z.array(z.string()))
-    .optional()
-    .describe('Per-field validation messages, when applicable'),
-});
+export class ApiErrorDto {
+  @ApiProperty({ description: 'HTTP status code' })
+  @Type(() => Number)
+  @IsInt()
+  statusCode!: number;
 
-export type ApiError = z.infer<typeof apiErrorSchema>;
+  @ApiProperty({ description: 'Short machine-readable error code' })
+  @IsString()
+  error!: string;
 
-/** Documented shape of every non-2xx response. */
-export class ApiErrorDto extends createZodDto(apiErrorSchema) {}
+  @ApiProperty({ description: 'Human-readable summary safe to return to a client' })
+  @IsString()
+  message!: string;
+
+  @ApiProperty({ description: 'Correlation id, also present in server logs' })
+  @IsString()
+  requestId!: string;
+
+  @ApiProperty({ description: 'Request path that failed' })
+  @IsString()
+  path!: string;
+
+  @ApiProperty({ description: 'ISO-8601 time the error was produced' })
+  @IsString()
+  timestamp!: string;
+
+  @ApiPropertyOptional({ description: 'Per-field validation messages, when applicable' })
+  @IsObject()
+  @IsArray()
+  @IsString({ each: true })
+  errors?: Record<string, string[]>;
+}
+
+export type ApiError = InstanceType<typeof ApiErrorDto>;

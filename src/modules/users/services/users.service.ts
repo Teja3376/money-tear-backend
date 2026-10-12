@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ACCOUNT_STATUS, type AccountStatus } from '@/common/constants/account';
 import { User } from '@/modules/users/entities/user.entity';
-import type { UpdateProfileInput, UserResponse } from '@/modules/users/dto/user.dto';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
+import type { UserResponse } from '@/modules/users/dto/user-response.dto';
+import type { UpdateProfileInput } from '@/modules/users/dto/update-profile.dto';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
 
-/** `+91 98765 43210`, `987-654-3210` and `+919876543210` all normalise alike. */
 export function normalisePhone(phone: string | null | undefined): string | null {
   if (!phone) {
     return null;
@@ -36,17 +36,6 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id: userId } });
   }
 
-  /**
-   * Creates the application user for a verified identity, or returns the existing row.
-   *
-   * Idempotent and safe under concurrency:
-   *  - `INSERT ... ON CONFLICT (id) DO NOTHING` means two simultaneous bootstrap
-   *    calls cannot raise a duplicate-key error;
-   *  - the subsequent `SELECT` reads the row that won the race, so both callers
-   *    observe identical state.
-   *
-   * The id comes from the verified token, never from the request body.
-   */
   async bootstrap(identity: AuthenticatedUser): Promise<{ user: User; created: boolean }> {
     const insertResult = await this.usersRepository
       .createQueryBuilder()
@@ -77,13 +66,6 @@ export class UsersService {
     return { user, created };
   }
 
-  /**
-   * Applies an allowlisted profile update.
-   *
-   * Only the keys present on the DTO are written; `role`, `status`, `id` and
-   * security columns are not part of the update object and therefore cannot be
-   * modified here.
-   */
   async updateProfile(
     userId: string,
     input: UpdateProfileInput,
@@ -105,12 +87,6 @@ export class UsersService {
     return toUserResponse(user);
   }
 
-    /**
-   * Account status for the authorisation guard.
-   *
-   * Returns `null` when no application row exists yet - a caller who has not
-   * bootstrapped is not "suspended", and bootstrap must remain reachable.
-   */
   async findStatus(userId: string): Promise<AccountStatus | null> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
@@ -120,7 +96,6 @@ export class UsersService {
   }
 }
 
-/** Maps an entity to its public projection. `deletedAt` is intentionally not exposed. */
 export function toUserResponse(user: User): UserResponse {
   return {
     id: user.id,

@@ -2,21 +2,9 @@ import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 import type { AppConfiguration } from '@/config/configuration';
 
-/**
- * Swagger / OpenAPI setup, kept out of `main.ts` so the document definition is a
- * single reviewable unit.
- *
- * Routes are mounted under the same `/api` prefix as the rest of the API. Nest's
- * global prefix is *not* re-applied (`useGlobalPrefix: false`), which is what
- * prevents the doubled `/api/api/docs` path.
- */
 export const SWAGGER_PATH = 'api/docs';
 export const SWAGGER_JSON_PATH = 'api/docs-json';
 
-/**
- * The bearer scheme must match what `JwtAuthGuard` reads: an HTTP `Authorization:
- * Bearer <token>` header carrying a Supabase JWT.
- */
 function buildDocument(): Omit<OpenAPIObject, 'paths'> {
   return new DocumentBuilder()
     .setTitle('MoneyTear API')
@@ -66,12 +54,6 @@ function buildDocument(): Omit<OpenAPIObject, 'paths'> {
     .build();
 }
 
-/**
- * Builds the OpenAPI document.
- *
- * Exported separately from mounting so tests can assert the document without
- * starting a server.
- */
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
   return SwaggerModule.createDocument(app, buildDocument(), {
     // Never let an internal path leak into the published document.
@@ -79,13 +61,6 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
   });
 }
 
-/**
- * Mounts Swagger UI and the JSON document.
- *
- * Returns the mounted paths. Disabled entirely when `SWAGGER_ENABLED=false`,
- * which is the recommended production posture (an obscure URL is not access
- * control - restrict it at the ingress or serve it on an internal network).
- */
 export function setupSwagger(
   app: INestApplication,
   config: AppConfiguration,

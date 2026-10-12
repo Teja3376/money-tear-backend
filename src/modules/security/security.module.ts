@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserSecurity } from '@/modules/security/entities/user-security.entity';
-import { PinHasher } from '@/modules/security/pin-hasher.service';
-import { PinUnlockService } from '@/modules/security/pin-unlock.service';
-import { SecurityController } from '@/modules/security/security.controller';
-import { SecurityService } from '@/modules/security/security.service';
+import { PinHasher } from '@/modules/security/services/pin-hasher.service';
+import { PinUnlockService } from '@/modules/security/services/pin-unlock.service';
+import { SecurityController } from '@/modules/security/controllers/security.controller';
+import { SecurityService } from '@/modules/security/services/security.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserSecurity])],

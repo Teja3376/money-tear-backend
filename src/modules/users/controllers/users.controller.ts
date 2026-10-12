@@ -18,15 +18,15 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ApiErrorDto } from '@/common/dto/api-error.dto';
-import { AuditService } from '@/modules/audit/audit.service';
+import { AuditService } from '@/modules/audit/services/audit.service';
 import { AUDIT_EVENT } from '@/common/constants/audit-event';
 import {
-  UpdateProfileDto,
   UserResponseDto,
   type UserResponse,
-} from '@/modules/users/dto/user.dto';
-import { UsersService, toUserResponse } from '@/modules/users/users.service';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
+} from '@/modules/users/dto/user-response.dto';
+import { UpdateProfileDto } from '@/modules/users/dto/update-profile.dto';
+import { UsersService, toUserResponse } from '@/modules/users/services/users.service';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
 
 @ApiTags('users')
 @ApiBearerAuth()

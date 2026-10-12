@@ -9,10 +9,9 @@ import {
 import type { Request, Response } from 'express';
 import type { ApiError } from '@/common/dto/api-error.dto';
 import { PinLockedException } from '@/common/errors/pin-locked.exception';
-import type { RequestWithId } from '@/common/middleware/request-id.middleware';
-import { ZodValidationIssue } from '@/common/pipes/zod-validation.pipe';
+import type { RequestWithId } from '@/common/interceptors/request-id.interceptor';
+import { ValidationIssue } from '@/common/pipes/validation.pipe';
 
-/** Maps exception classes onto stable machine-readable codes. */
 const ERROR_CODES: Partial<Record<number, string>> = {
   [HttpStatus.BAD_REQUEST]: 'bad_request',
   [HttpStatus.UNAUTHORIZED]: 'unauthorized',
@@ -23,14 +22,6 @@ const ERROR_CODES: Partial<Record<number, string>> = {
   [HttpStatus.SERVICE_UNAVAILABLE]: 'service_unavailable',
 };
 
-/**
- * Normalises every thrown error into one JSON envelope.
- *
- * Guarantees:
- * - no stack traces and no raw driver/framework messages reach the client;
- * - the server log keeps the full error for diagnosis;
- * - the response always carries a `requestId` that correlates the two.
- */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -79,7 +70,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json(errorPayload);
   }
 
-  /** Retry delay in seconds, when the exception carries one. */
   private resolveRetryAfter(exception: unknown): number | null {
     if (exception instanceof PinLockedException) {
       return Math.max(exception.retryAfterSeconds, 1);
@@ -87,7 +77,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return null;
   }
 
-  /** Pulls `{ errors: {...} }` out of a `BadRequestException` raised by the zod pipe. */
   private extractValidationIssues(body: unknown): Record<string, string[]> | null {
     if (typeof body !== 'object' || body === null) {
       return null;
@@ -117,7 +106,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       typeof body === 'object' &&
       body !== null &&
       'errors' in body &&
-      typeof (body as ZodValidationIssue).message === 'string'
+      typeof (body as ValidationIssue).message === 'string'
     );
   }
 

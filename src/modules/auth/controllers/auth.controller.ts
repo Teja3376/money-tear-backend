@@ -10,16 +10,14 @@ import type { Request } from 'express';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
 import { ApiErrorDto } from '@/common/dto/api-error.dto';
-import { AuthService } from '@/modules/auth/auth.service';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
-import {
-  AuthStateDto,
-  LogoutResultDto,
-  SendOtpDto,
-  SendOtpResultDto,
-  VerifyOtpDto,
-  VerifyOtpResultDto,
-} from '@/modules/auth/dto/auth.dto';
+import { AuthService } from '@/modules/auth/services/auth.service';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
+import { AuthStateDto } from '@/modules/auth/dto/auth-state.dto';
+import { LogoutResultDto } from '@/modules/auth/dto/logout-result.dto';
+import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
+import { SendOtpResultDto } from '@/modules/auth/dto/send-otp-result.dto';
+import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
+import { VerifyOtpResultDto } from '@/modules/auth/dto/verify-otp-result.dto';
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -54,6 +52,7 @@ export class AuthController {
   async verifyOtp(@Body() body: VerifyOtpDto) {
     return this.authService.verifyOtp(body.phone, body.otp);
   }
+
 
 
 

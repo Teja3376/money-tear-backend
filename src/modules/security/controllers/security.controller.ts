@@ -24,16 +24,14 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ThrottleSecuritySensitive } from '@/common/decorators/throttle-security-sensitive.decorator';
 import { ApiErrorDto } from '@/common/dto/api-error.dto';
 import { RecentAuthGuard } from '@/common/guards/recent-auth.guard';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
-import {
-  ChangePinDto,
-  PinMutationResultDto,
-  PinStatusDto,
-  PinVerifiedDto,
-  SetupPinDto,
-  VerifyPinDto,
-} from '@/modules/security/dto/pin.dto';
-import { SecurityService } from '@/modules/security/security.service';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
+import { ChangePinDto } from '@/modules/security/dto/change-pin.dto';
+import { PinMutationResultDto } from '@/modules/security/dto/pin-mutation-result.dto';
+import { PinStatusDto } from '@/modules/security/dto/pin-status.dto';
+import { PinVerifiedDto } from '@/modules/security/dto/pin-verified.dto';
+import { SetupPinDto } from '@/modules/security/dto/setup-pin.dto';
+import { VerifyPinDto } from '@/modules/security/dto/verify-pin.dto';
+import { SecurityService } from '@/modules/security/services/security.service';
 
 @ApiTags('security')
 @ApiBearerAuth()

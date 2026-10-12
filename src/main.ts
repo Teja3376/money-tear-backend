@@ -7,7 +7,6 @@ import { AppModule, ObserveInstrument } from '@/app.module';
 import { getAppConfig } from '@/config/configuration';
 import { setupSwagger } from '@/swagger';
 
-/** Single global prefix. There is no API versioning anywhere in this service. */
 export const API_PREFIX = 'api';
 
 async function bootstrap(): Promise<void> {

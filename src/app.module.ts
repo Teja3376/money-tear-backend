@@ -1,10 +1,6 @@
-import {
-  MiddlewareConsumer,
-  Module,
-  type NestModule,
-} from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_PIPE, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_PIPE, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { createObserveModule } from '@nestjs/observe';
@@ -16,8 +12,8 @@ import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { AccountStatusGuard } from '@/common/guards/account-status.guard';
-import { RequestIdMiddleware } from '@/common/middleware/request-id.middleware';
-import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import { RequestIdInterceptor } from '@/common/interceptors/request-id.interceptor';
+import { AppValidationPipe } from '@/common/pipes/validation.pipe';
 import { AuthCoreModule } from '@/modules/auth/auth-core.module';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { AuthModule } from '@/modules/auth/auth.module';
@@ -28,21 +24,9 @@ import { UsersModule } from '@/modules/users/users.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
-/**
- * `@nestjs/observe` recognises *exactly* these two literals as "not configured"
- * and then leaves the telemetry agent switched off.
- *
- * The distinction matters: passing empty strings is **not** equivalent. The
- * library would treat them as real credentials, start the detached worker, and
- * attempt uploads with an empty key and secret.
- */
 const OBSERVE_UNSET_APP_KEY = 'YOUR_APP_KEY';
 const OBSERVE_UNSET_APP_SECRET = 'YOUR_APP_SECRET';
 
-/**
- * Resolved at module-definition time, after `ConfigModule.forRoot` has already
- * validated the environment, so only vetted values are used.
- */
 function observeCredentials(): { appKey: string; appSecret: string } {
   const env = validateEnv(process.env);
   return {
@@ -132,13 +116,9 @@ function observeCredentials(): { appKey: string; appSecret: string } {
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountStatusGuard },
-    { provide: APP_PIPE, useClass: ZodValidationPipe },
+    { provide: APP_PIPE, useClass: AppValidationPipe },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: RequestIdInterceptor },
   ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    // Runs before guards, so every response - success or failure - carries the id.
-    consumer.apply(RequestIdMiddleware).forRoutes('*splat');
-  }
-}
+export class AppModule {}

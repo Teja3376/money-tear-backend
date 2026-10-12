@@ -5,21 +5,14 @@ import { Repository } from 'typeorm';
 import { getAppConfig, type AppConfiguration } from '@/config/configuration';
 import { AUDIT_EVENT } from '@/common/constants/audit-event';
 import { PinLockedException } from '@/common/errors/pin-locked.exception';
-import { AuditService } from '@/modules/audit/audit.service';
+import { AuditService } from '@/modules/audit/services/audit.service';
 import { UserSecurity } from '@/modules/security/entities/user-security.entity';
-import { PinHasher } from '@/modules/security/pin-hasher.service';
-import { PinUnlockService } from '@/modules/security/pin-unlock.service';
-import type {
-  ChangePinInput,
-  SetupPinInput,
-} from '@/modules/security/dto/pin.dto';
+import { PinHasher } from '@/modules/security/services/pin-hasher.service';
+import { PinUnlockService } from '@/modules/security/services/pin-unlock.service';
+import type { SetupPinInput } from '@/modules/security/dto/setup-pin.dto';
+import type { ChangePinInput } from '@/modules/security/dto/change-pin.dto';
 import type { Request } from 'express';
 
-/**
- * A single message for every credential failure, so a caller cannot learn
- * whether a PIN exists, was wrong, or was merely wrong *and* the account is
- * currently locked.
- */
 const GENERIC_INVALID_PIN = 'Invalid PIN';
 
 export interface PinVerifyOutcome {
@@ -48,14 +41,6 @@ export class SecurityService {
     this.config = getAppConfig(configService);
   }
 
-  /**
-   * Sets the first PIN.
-   *
-   * Refuses to overwrite an existing PIN: changing it is a different flow
-   * (`change`) that requires proving knowledge of the current one, and `reset`
-   * requires renewed identity verification. This removes the "replace someone's
-   * PIN while holding their access token" path.
-   */
   async setupPin(
     userId: string,
     input: SetupPinInput,
@@ -110,15 +95,6 @@ export class SecurityService {
     return { success: true, configured: true };
   }
 
-  /**
-   * Verifies a PIN.
-   *
-   * Failure handling is uniform and generic:
-   *  - a wrong PIN increments a persisted counter;
-   *  - reaching the threshold sets `locked_until`, after which *every* attempt is
-   *    refused without touching the hash, so lockout cannot be probed;
-   *  - responses never reveal the hash or which factor was wrong.
-   */
   async verifyPin(userId: string, pin: string, request?: Request): Promise<PinVerifyOutcome> {
     const security = await this.loadSecurity(userId);
 
@@ -184,12 +160,6 @@ export class SecurityService {
     return { verified: true, unlockedUntil };
   }
 
-  /**
-   * Replaces the PIN after proving knowledge of the current one.
-   *
-   * The current PIN goes through the same lockout path as `verifyPin`, so this
-   * endpoint cannot be used to brute-force the old PIN.
-   */
   async changePin(
     userId: string,
     input: ChangePinInput,
@@ -267,14 +237,6 @@ export class SecurityService {
     return { success: true, configured: true };
   }
 
-  /**
-   * Clears the PIN so a new one can be set.
-   *
-   * Authorisation is deliberately narrow: the caller must hold a valid access
-   * token *and* satisfy `RecentAuthGuard`, i.e. have signed in within the
-   * configured window. No user id, phone number or email is accepted as proof of
-   * identity.
-   */
   async resetPin(userId: string, request?: Request): Promise<PinMutationOutcome> {
     await this.securityRepository.update(
       { userId },
@@ -299,7 +261,6 @@ export class SecurityService {
     return { success: true, configured: false };
   }
 
-  /** Safe status projection. Never returns the hash or the attempt counters. */
   async getStatus(
     userId: string,
   ): Promise<{ configured: boolean; updatedAt: string | null }> {
@@ -325,15 +286,6 @@ export class SecurityService {
     return Math.max(0, Math.ceil((security.lockedUntil.getTime() - now.getTime()) / 1000));
   }
 
-  /**
-   * Atomically increments the persisted failure counter, then applies the lockout
-   * threshold when it is reached.
-   *
-   * The increment is performed by the database (`failed_pin_attempts + 1`) rather
-   * than by a read-modify-write in Node, so simultaneous attempts cannot all
-   * observe the same starting value and race past the threshold. Applying the
-   * lock afterwards is idempotent, so a duplicated threshold check is harmless.
-   */
   private async registerFailedAttempt(userId: string): Promise<boolean> {
     const { maxAttempts, lockSeconds } = this.config.auth.pin;
 
@@ -356,19 +308,11 @@ export class SecurityService {
     return true;
   }
 
-  /** Thrown when the PIN is locked; `Retry-After` is attached by the exception filter. */
   private lockedError(remainingSeconds: number): PinLockedException {
     return new PinLockedException(Math.max(remainingSeconds, 1));
   }
 }
 
-/**
- * Reads the counter returned by `UPDATE ... RETURNING`.
- *
- * `raw` is driver-specific, so the value is located defensively; if a driver ever
- * stops returning it, the counter still increments and only the immediate lockout
- * is deferred to the next attempt.
- */
 function readReturnedAttempts(raw: unknown): number | null {
   if (!Array.isArray(raw) || raw.length === 0) {
     return null;

@@ -1,17 +1,3 @@
-/**
- * Migration CLI.
- *
- * Runs through the application's own ESM runtime (`node --import
- * ./dist/runtime/register-alias.js dist/database/cli.js ...`) so migrations
- * execute with exactly the same module resolution as the app, and without the
- * `ts-node` ESM pitfalls that the official `typeorm` CLI runs into here.
- *
- * Commands:
- *   run    - apply all pending migrations
- *   revert - undo the most recently applied migration
- *   show   - list applied / pending migrations
- *   diff   - print the SQL a schema sync *would* apply (review before running)
- */
 import { createDataSource } from '@/database/data-source';
 
 const VALID_COMMANDS = ['run', 'revert', 'show', 'diff'] as const;
@@ -58,7 +44,7 @@ async function main(): Promise<void> {
 
       case 'revert': {
         await dataSource.undoLastMigration({ transaction: 'each' });
-        console.log('Reverted the most recent migration.');
+        console.log('Reverted the most recently applied migration.');
         return;
       }
 

@@ -1,16 +1,8 @@
 import type { AuditEventType } from '@/common/constants/audit-event';
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-/** Values that may legally appear inside `metadata`. */
 export type AuditMetadataValue = string | number | boolean | null;
 
-/**
- * Append-only record of security-relevant events.
- *
- * Audit writes must never fail the request they describe, so persistence is
- * best-effort (see `AuditService`). `metadata` is allowlisted and redacted
- * upstream; PINs, OTPs, tokens and authorization headers are never stored.
- */
 @Entity({ name: 'auth_audit_events', schema: 'public' })
 export class AuthAuditEvent {
   @PrimaryGeneratedColumn('uuid')

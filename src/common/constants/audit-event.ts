@@ -1,9 +1,3 @@
-/**
- * Controlled vocabulary for `auth_audit_events.event_type`.
- *
- * Keeping this a closed union means an arbitrary caller-supplied string can
- * never become an audit row type.
- */
 export const AUDIT_EVENT = {
   BOOTSTRAP_COMPLETED: 'bootstrap.completed',
   LOGOUT_REQUESTED: 'logout.requested',

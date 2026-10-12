@@ -4,11 +4,11 @@ import { DataSource } from 'typeorm';
 import { SignJWT } from 'jose';
 import { AUDIT_EVENT } from '@/common/constants/audit-event';
 import { getAppConfig, type AppConfiguration } from '@/config/configuration';
-import { AuditService } from '@/modules/audit/audit.service';
-import type { AuthenticatedUser } from '@/modules/auth/supabase-jwt.verifier';
-import { isProfileComplete } from '@/modules/users/dto/user.dto';
-import { SecurityService } from '@/modules/security/security.service';
-import { UsersService, normalisePhone } from '@/modules/users/users.service';
+import { AuditService } from '@/modules/audit/services/audit.service';
+import type { AuthenticatedUser } from '@/modules/auth/services/supabase-jwt.verifier';
+import { isProfileComplete } from '@/modules/users/dto/user-response.dto';
+import { SecurityService } from '@/modules/security/services/security.service';
+import { UsersService, normalisePhone } from '@/modules/users/services/users.service';
 import type { Request } from 'express';
 
 export interface AuthState {
@@ -34,9 +34,6 @@ export class AuthService {
     this.config = getAppConfig(configService);
   }
 
-  /**
-   * Generates and dispatches verification OTP.
-   */
   async sendOtp(phone: string): Promise<{ success: boolean; message: string }> {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 6) {
@@ -49,9 +46,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Verifies OTP and returns valid access token.
-   */
   async verifyOtp(
     phone: string,
     otp: string,
@@ -121,14 +115,6 @@ export class AuthService {
     };
   }
 
-
-  /**
-   * Creates or returns the application user for a verified identity.
-   *
-   * Idempotent by construction: repeated calls converge on the same row and the
-   * same response. The identity comes exclusively from the verified token, so a
-   * caller cannot bootstrap an account for somebody else.
-   */
   async bootstrap(identity: AuthenticatedUser, request?: Request): Promise<AuthState> {
     const { user, created } = await this.usersService.bootstrap(identity);
 
@@ -157,7 +143,6 @@ export class AuthService {
     return state;
   }
 
-  /** Current authenticated application user and its derived flags. */
   async me(identity: AuthenticatedUser): Promise<AuthState> {
     const user = await this.usersService.findById(identity.userId);
     if (!user) {
@@ -174,15 +159,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Records a logout.
-   *
-   * The backend's supported behaviour is an audited acknowledgement: it records
-   * the event and returns. It does **not** revoke Supabase refresh tokens (that
-   * requires a privileged identity-provider call this phase deliberately avoids),
-   * and it cannot clear credentials held by the client - disposing of the access
-   * and refresh tokens is the mobile client's responsibility.
-   */
   async logout(identity: AuthenticatedUser, request?: Request): Promise<{ loggedOut: boolean; scope: string }> {
     await this.auditService.record({
       eventType: AUDIT_EVENT.LOGOUT_REQUESTED,
@@ -200,7 +176,6 @@ export class AuthService {
   }
 }
 
-/** Narrow projection of the user for auth responses (no security metadata). */
 function toAuthUser(user: {
   id: string;
   phone: string | null;
